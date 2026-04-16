@@ -4,9 +4,10 @@ from bfs_puzzle import bfs
 from dfs_puzzle import dfs
 from dfs_modified_puzzle import dfs_modified
 from dfs_recursive_puzzle import dfs_recursive
-from puzzle_logic import is_solvable, shuffle_board
+from puzzle_logic import shuffle_board
 
 SIZE = 4
+
 
 def restore_path(parent, goal):
     path = []
@@ -14,6 +15,23 @@ def restore_path(parent, goal):
         path.append(goal)
         goal = parent[goal]
     return path[::-1]
+
+
+def parity_signature(board):
+    arr = [x for x in board if x != 0]
+    inv = 0
+    for i in range(len(arr)):
+        for j in range(i + 1, len(arr)):
+            if arr[i] > arr[j]:
+                inv += 1
+
+    zero_row_from_top = board.index(0) // SIZE
+    return (inv + zero_row_from_top) % 2
+
+
+def is_reachable(start, goal):
+    return parity_signature(start) == parity_signature(goal)
+
 
 class PuzzleGUI:
     def __init__(self, root):
@@ -26,21 +44,25 @@ class PuzzleGUI:
 
         self.root.configure(bg=self.bg_main)
 
-        self.board = list(range(1, 16)) + [0]
-        self.initial_board = self.board.copy()
-        self.goal = tuple(self.board)
+        self.initial_board = list(range(1, 16)) + [0]
+        self.goal_board = list(range(1, 16)) + [0]
+        self.board = self.initial_board.copy()  # поле решения
+
+        self.goal = tuple(self.goal_board)
         self.path = None
         self.moves = []
         self.current_step = 0
 
-        self.create_ui()
-        self.update_ui()
         self.results_dict = {
             "bfs": None,
             "dfs": None,
             "dfs_recursive": None,
             "dfs_modified": None
         }
+
+        self.create_ui()
+        self.update_ui()
+        self.update_results_view()
 
     def create_ui(self):
         main = tk.Frame(self.root, bg=self.bg_main)
@@ -52,10 +74,14 @@ class PuzzleGUI:
         left_container = tk.Frame(boards_frame, bg=self.bg_main)
         left_container.grid(row=0, column=0, padx=10, sticky="n")
 
+        middle_container = tk.Frame(boards_frame, bg=self.bg_main)
+        middle_container.grid(row=0, column=1, padx=10, sticky="n")
+
         right_container = tk.Frame(boards_frame, bg=self.bg_main)
-        right_container.grid(row=0, column=1, padx=10, sticky="n")
+        right_container.grid(row=0, column=2, padx=10, sticky="n")
 
         self.left_buttons = self.create_labeled_board(left_container, "Начальное состояние")
+        self.middle_buttons = self.create_labeled_board(middle_container, "Целевое состояние")
         self.right_buttons = self.create_labeled_board(right_container, "Решение")
 
         # === КНОПКИ СЛЕВА ===
@@ -66,6 +92,9 @@ class PuzzleGUI:
             .pack(side="left", expand=True, fill="x", padx=5)
 
         tk.Button(btn_frame, text="Перемешать", command=self.shuffle)\
+            .pack(side="left", expand=True, fill="x", padx=5)
+
+        tk.Button(btn_frame, text="Цель", command=self.input_goal_state)\
             .pack(side="left", expand=True, fill="x", padx=5)
 
         # === ВЫБОР МЕТОДА ===
@@ -140,7 +169,7 @@ class PuzzleGUI:
 
         # === СПИСОК ХОДОВ ===
         moves_panel = tk.Frame(boards_frame, bg=self.bg_main)
-        moves_panel.grid(row=0, column=2, padx=15, sticky="n")
+        moves_panel.grid(row=0, column=3, padx=15, sticky="n")
 
         tk.Label(
             moves_panel,
@@ -151,7 +180,7 @@ class PuzzleGUI:
 
         self.moves_list = tk.Listbox(moves_panel, width=28, height=18)
         self.moves_list.pack()
-        
+
         # === РЕЗУЛЬТАТЫ АЛГОРИТМОВ ===
         tk.Label(
             moves_panel,
@@ -168,9 +197,10 @@ class PuzzleGUI:
         )
         self.results_text.pack()
         self.results_text.config(state="disabled")
-        
+
         self.status = tk.Label(main, text="Готово", bg=self.bg_main)
         self.status.pack(pady=8)
+
     def update_results_view(self):
         self.results_text.config(state="normal")
         self.results_text.delete(1.0, tk.END)
@@ -198,15 +228,18 @@ class PuzzleGUI:
             self.results_text.insert(tk.END, line)
 
         self.results_text.config(state="disabled")
+
     def reset_solution(self):
         self.path = None
         self.moves = []
         self.current_step = 0
+        self.board = self.initial_board.copy()
         self.moves_list.delete(0, tk.END)
+        self.update_ui()
         self.status.config(text="Готово")
 
-    def create_labeled_board(self, parent, title):
-        frame = tk.Frame(parent, bg=self.bg_board)
+    def create_labeled_board(self, parent, title, background=None):
+        frame = tk.Frame(parent, background=(background or self.bg_board))
         frame.pack()
 
         tk.Label(
@@ -242,21 +275,22 @@ class PuzzleGUI:
             buttons.append(row)
         return buttons
 
+    def draw_board(self, buttons, board_values):
+        for i in range(SIZE):
+            for j in range(SIZE):
+                val = board_values[i * SIZE + j]
+                buttons[i][j]["text"] = str(val) if val != 0 else ""
+
     def update_ui(self):
-        for i in range(SIZE):
-            for j in range(SIZE):
-                val = self.initial_board[i * SIZE + j]
-                self.left_buttons[i][j]["text"] = str(val) if val != 0 else ""
+        self.draw_board(self.left_buttons, self.initial_board)
+        self.draw_board(self.middle_buttons, self.goal_board)
+        self.draw_board(self.right_buttons, self.board)
 
-        for i in range(SIZE):
-            for j in range(SIZE):
-                val = self.board[i * SIZE + j]
-                self.right_buttons[i][j]["text"] = str(val) if val != 0 else ""
-
-    # ===== ВВОД МАТРИЦЕЙ =====
-    def input_state(self):
+    def open_board_dialog(self, title, initial_values):
         win = tk.Toplevel(self.root)
-        win.title("Ввод состояния")
+        win.title(title)
+        win.transient(self.root)
+        win.grab_set()
 
         entries = []
 
@@ -265,8 +299,11 @@ class PuzzleGUI:
             for j in range(SIZE):
                 e = tk.Entry(win, width=3, font=("Arial", 14), justify="center")
                 e.grid(row=i, column=j, padx=5, pady=5)
+                e.insert(0, str(initial_values[i * SIZE + j]))
                 row.append(e)
             entries.append(row)
+
+        result = {"board": None}
 
         def submit():
             try:
@@ -279,18 +316,7 @@ class PuzzleGUI:
                 if len(nums) != 16 or set(nums) != set(range(16)):
                     raise ValueError
 
-                if not is_solvable(nums):
-                    messagebox.showerror("Ошибка", "Нерешаемое состояние")
-                    return
-
-                self.initial_board = nums[:]
-                self.board = nums[:]
-                self.moves_list.delete(0, tk.END)
-                self.path = None
-                self.moves = []
-                self.current_step = 0
-                self.update_ui()
-                self.status.config(text="Готово")
+                result["board"] = nums
                 win.destroy()
 
             except Exception:
@@ -299,16 +325,34 @@ class PuzzleGUI:
         tk.Button(win, text="ОК", command=submit)\
             .grid(row=SIZE, column=0, columnspan=SIZE, pady=10)
 
+        self.root.wait_window(win)
+        return result["board"]
+
+    def input_state(self):
+        nums = self.open_board_dialog("Ввод начального состояния", self.initial_board)
+        if nums is None:
+            return
+
+        self.initial_board = nums[:]
+        self.board = nums[:]
+        self.reset_solution()
+        self.update_ui()
+
+    def input_goal_state(self):
+        nums = self.open_board_dialog("Ввод целевого состояния", self.goal_board)
+        if nums is None:
+            return
+
+        self.goal_board = nums[:]
+        self.goal = tuple(self.goal_board)
+        self.reset_solution()
+        self.update_ui()
+
     def shuffle(self):
         self.initial_board = shuffle_board()
         self.board = self.initial_board.copy()
 
-        self.moves_list.delete(0, tk.END)
-        self.path = None
-        self.moves = []
-        self.current_step = 0
-        self.update_ui()
-        self.status.config(text="Готово")
+        self.reset_solution()
         self.results_dict = {
             "bfs": None,
             "dfs": None,
@@ -318,7 +362,19 @@ class PuzzleGUI:
         self.update_results_view()
 
     def compute_solution(self):
+        if not is_reachable(self.initial_board, self.goal_board):
+            self.path = None
+            self.moves = []
+            self.current_step = 0
+            self.board = self.initial_board.copy()
+            self.moves_list.delete(0, tk.END)
+            self.update_ui()
+            self.status.config(text="Начальное состояние не достижимо для выбранного целевого")
+            messagebox.showerror("Ошибка", "Начальное состояние нельзя преобразовать в выбранное целевое")
+            return
+
         start = tuple(self.initial_board)
+        self.goal = tuple(self.goal_board)
 
         try:
             max_depth = int(self.depth_var.get())
@@ -332,15 +388,18 @@ class PuzzleGUI:
 
         if method == "bfs":
             path, steps = bfs(start, self.goal)
+
         elif method == "dfs":
             path, steps = dfs(start, self.goal, max_depth)
+
         elif method == "dfs_modified":
-            steps = [0]
-            result = dfs_modified(start, self.goal, set(), [], steps, 0, max_depth)
+            steps_box = [0]
+            result = dfs_modified(start, self.goal, set(), [], steps_box, 0, max_depth)
             if result:
                 path, steps = result
             else:
-                path, steps = None, steps[0]
+                path, steps = None, steps_box[0]
+
         elif method == "dfs_recursive":
             steps_rec = [0]
             parent = {start: None}
@@ -350,24 +409,34 @@ class PuzzleGUI:
                 path, steps = restore_path(parent, self.goal), steps_rec[0]
             else:
                 path, steps = None, steps_rec[0]
+
         else:
-            path, steps = dfs_recursive(start, self.goal, max_depth)
+            path, steps = None, 0
 
         if path is None:
             self.path = None
             self.moves = []
             self.current_step = 0
+            self.board = self.initial_board.copy()
+            self.update_ui()
+
             if method == "bfs":
                 self.status.config(text=f"Нет решения | Шагов поиска: {steps}")
             else:
                 self.status.config(text=f"Нет решения в пределах глубины {max_depth} | Шагов поиска: {steps}")
+
+            self.moves_list.delete(0, tk.END)
+            self.results_dict[method] = (steps, 0)
+            self.update_results_view()
             return
 
         self.status.config(
             text=f"Шагов поиска: {steps} | Длина решения: {len(path) - 1}"
         )
+
         self.results_dict[method] = (steps, len(path) - 1)
         self.update_results_view()
+
         self.path = path
         self.moves = [self.get_move(path[k], path[k + 1]) for k in range(len(path) - 1)]
 
@@ -385,7 +454,6 @@ class PuzzleGUI:
         if self.path is None:
             self.compute_solution()
             if self.path is None:
-                messagebox.showwarning("Внимание", "Решение не найдено")
                 return
 
         def step(i):
@@ -396,8 +464,8 @@ class PuzzleGUI:
             self.board = list(self.path[i])
             self.update_ui()
 
+            self.moves_list.selection_clear(0, tk.END)
             if i > 0:
-                self.moves_list.selection_clear(0, tk.END)
                 self.moves_list.selection_set(i - 1)
                 self.moves_list.see(i - 1)
 
