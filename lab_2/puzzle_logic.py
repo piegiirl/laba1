@@ -1,3 +1,5 @@
+import random
+
 SIZE = 4
 
 
@@ -33,3 +35,20 @@ def is_solvable(board):
     row_from_bottom = 4 - (board.index(0) // 4)
 
     return (inv + row_from_bottom) % 2 == 1
+
+def shuffle_board(steps=5):
+    board = list(range(1, 16)) + [0]
+    prev = None
+
+    for _ in range(steps):
+        neighbors = get_neighbors(tuple(board))
+
+        # убираем состояние, из которого пришли (анти-откат)
+        if prev and prev in neighbors:
+            neighbors.remove(prev)
+
+        next_state = random.choice(neighbors)
+        prev = tuple(board)
+        board = list(next_state)
+
+    return board

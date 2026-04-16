@@ -1,28 +1,13 @@
 import tkinter as tk
 from tkinter import messagebox
-import random
 from bfs_puzzle import bfs
 from dfs_puzzle import dfs
-from puzzle_logic import get_neighbors, is_solvable
+from dfs_modified_puzzle import dfs_modified
+from dfs_recursive_puzzle import dfs_recursive
+from puzzle_logic import is_solvable, shuffle_board
 
 SIZE = 4
 
-def shuffle_board(steps=10):
-    board = list(range(1, 16)) + [0]
-    prev = None
-
-    for _ in range(steps):
-        neighbors = get_neighbors(tuple(board))
-
-        # убираем состояние, из которого пришли (анти-откат)
-        if prev and prev in neighbors:
-            neighbors.remove(prev)
-
-        next_state = random.choice(neighbors)
-        prev = tuple(board)
-        board = list(next_state)
-
-    return board
 
 class PuzzleGUI:
     def __init__(self, root):
@@ -39,6 +24,7 @@ class PuzzleGUI:
         self.initial_board = self.board.copy()
         self.goal = tuple(self.board)
         self.path = None
+        self.moves = []
         self.current_step = 0
 
         self.create_ui()
@@ -70,7 +56,7 @@ class PuzzleGUI:
         tk.Button(btn_frame, text="Перемешать", command=self.shuffle)\
             .pack(side="left", expand=True, fill="x", padx=5)
 
-        # === МЕТОД ===
+        # === ВЫБОР МЕТОДА ===
         method_frame = tk.Frame(left_container, bg=self.bg_main)
         method_frame.pack(pady=5)
 
@@ -78,20 +64,61 @@ class PuzzleGUI:
 
         self.method_var = tk.StringVar(value="bfs")
 
-        tk.Radiobutton(method_frame, text="BFS", variable=self.method_var,
-                    value="bfs", bg=self.bg_main,
-                    command=self.reset_solution).pack(side="left", padx=5)
+        tk.Radiobutton(
+            method_frame,
+            text="BFS",
+            variable=self.method_var,
+            value="bfs",
+            bg=self.bg_main,
+            command=self.reset_solution
+        ).pack(side="left", padx=5)
 
-        tk.Radiobutton(method_frame, text="DFS", variable=self.method_var,
-                    value="dfs", bg=self.bg_main,
-                    command=self.reset_solution).pack(side="left")
+        tk.Radiobutton(
+            method_frame,
+            text="DFS",
+            variable=self.method_var,
+            value="dfs",
+            bg=self.bg_main,
+            command=self.reset_solution
+        ).pack(side="left", padx=5)
+
+        tk.Radiobutton(
+            method_frame,
+            text="DFS Modified",
+            variable=self.method_var,
+            value="dfs_modified",
+            bg=self.bg_main,
+            command=self.reset_solution
+        ).pack(side="left", padx=5)
+
+        tk.Radiobutton(
+            method_frame,
+            text="DFS Recursive",
+            variable=self.method_var,
+            value="dfs_recursive",
+            bg=self.bg_main,
+            command=self.reset_solution
+        ).pack(side="left", padx=5)
+
+        # === ГЛУБИНА ДЛЯ DFS ===
+        depth_frame = tk.Frame(left_container, bg=self.bg_main)
+        depth_frame.pack(pady=5, fill="x")
+
+        tk.Label(depth_frame, text="Макс. глубина DFS:", bg=self.bg_main).pack(side="left")
+        self.depth_var = tk.IntVar(value=15)
+        tk.Entry(depth_frame, textvariable=self.depth_var, width=5, justify="center").pack(side="left", padx=5)
 
         # === КНОПКИ СПРАВА ===
         right_ctrl = tk.Frame(right_container, bg=self.bg_main)
         right_ctrl.pack(pady=10)
 
-        tk.Button(right_ctrl, text="Старт", command=self.start_animation,
-                  bg="#4CAF50", fg="white").pack(side="left", padx=5)
+        tk.Button(
+            right_ctrl,
+            text="Старт",
+            command=self.start_animation,
+            bg="#4CAF50",
+            fg="white"
+        ).pack(side="left", padx=5)
 
         tk.Button(right_ctrl, text="Предыдущий шаг", command=self.prev_step)\
             .pack(side="left", padx=5)
@@ -103,24 +130,36 @@ class PuzzleGUI:
         moves_panel = tk.Frame(boards_frame, bg=self.bg_main)
         moves_panel.grid(row=0, column=2, padx=15, sticky="n")
 
-        tk.Label(moves_panel, text="Ходы", font=("Arial", 12, "bold"),
-                 bg=self.bg_main).pack(pady=(0, 5))
+        tk.Label(
+            moves_panel,
+            text="Ходы",
+            font=("Arial", 12, "bold"),
+            bg=self.bg_main
+        ).pack(pady=(0, 5))
 
         self.moves_list = tk.Listbox(moves_panel, width=28, height=18)
         self.moves_list.pack()
 
         self.status = tk.Label(main, text="Готово", bg=self.bg_main)
         self.status.pack(pady=8)
+
     def reset_solution(self):
         self.path = None
+        self.moves = []
+        self.current_step = 0
         self.moves_list.delete(0, tk.END)
         self.status.config(text="Готово")
+
     def create_labeled_board(self, parent, title):
         frame = tk.Frame(parent, bg=self.bg_board)
         frame.pack()
 
-        tk.Label(frame, text=title, bg=self.bg_board,
-                 font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=5, pady=10)
+        tk.Label(
+            frame,
+            text=title,
+            bg=self.bg_board,
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=0, columnspan=5, pady=10)
 
         tk.Label(frame, text="", bg=self.bg_board).grid(row=1, column=0)
 
@@ -134,9 +173,15 @@ class PuzzleGUI:
 
             row = []
             for j in range(SIZE):
-                btn = tk.Label(frame, width=6, height=3,
-                               bg=self.tile_color, relief="ridge", bd=2,
-                               font=("Arial", 14, "bold"))
+                btn = tk.Label(
+                    frame,
+                    width=6,
+                    height=3,
+                    bg=self.tile_color,
+                    relief="ridge",
+                    bd=2,
+                    font=("Arial", 14, "bold")
+                )
                 btn.grid(row=i + 2, column=j + 1, padx=3, pady=3)
                 row.append(btn)
             buttons.append(row)
@@ -185,13 +230,15 @@ class PuzzleGUI:
 
                 self.initial_board = nums[:]
                 self.board = nums[:]
-
                 self.moves_list.delete(0, tk.END)
                 self.path = None
+                self.moves = []
+                self.current_step = 0
                 self.update_ui()
+                self.status.config(text="Готово")
                 win.destroy()
 
-            except:
+            except Exception:
                 messagebox.showerror("Ошибка", "Неверный ввод")
 
         tk.Button(win, text="ОК", command=submit)\
@@ -203,25 +250,43 @@ class PuzzleGUI:
 
         self.moves_list.delete(0, tk.END)
         self.path = None
+        self.moves = []
+        self.current_step = 0
         self.update_ui()
-
-        if not is_solvable(self.board):
-            messagebox.showerror("Ошибка", "Нерешаемое состояние")
-        return
+        self.status.config(text="Готово")
 
     def compute_solution(self):
         start = tuple(self.initial_board)
 
-        if self.method_var.get() == "bfs":
-            path, steps = bfs(start, self.goal)
-        else:
-            path, steps = dfs(start, self.goal, 30)
-
-        if path is None:
-            self.status.config(text="Нет решения")
+        try:
+            max_depth = int(self.depth_var.get())
+            if max_depth < 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Ошибка", "Максимальная глубина должна быть неотрицательным числом")
             return
 
-        # ✅ ВЫВОД ШАГОВ
+        method = self.method_var.get()
+
+        if method == "bfs":
+            path, steps = bfs(start, self.goal)
+        elif method == "dfs":
+            path, steps = dfs(start, self.goal, max_depth)
+        elif method == "dfs_modified":
+            path, steps = dfs_modified(start, self.goal, max_depth)
+        else:
+            path, steps = dfs_recursive(start, self.goal, max_depth)
+
+        if path is None:
+            self.path = None
+            self.moves = []
+            self.current_step = 0
+            if method == "bfs":
+                self.status.config(text=f"Нет решения | Шагов поиска: {steps}")
+            else:
+                self.status.config(text=f"Нет решения в пределах глубины {max_depth} | Шагов поиска: {steps}")
+            return
+
         self.status.config(
             text=f"Шагов поиска: {steps} | Длина решения: {len(path) - 1}"
         )
@@ -238,6 +303,7 @@ class PuzzleGUI:
         self.current_step = 0
         self.board = list(path[0])
         self.update_ui()
+
     def start_animation(self):
         if self.path is None:
             self.compute_solution()
@@ -249,6 +315,7 @@ class PuzzleGUI:
             if i >= len(self.path):
                 return
 
+            self.current_step = i
             self.board = list(self.path[i])
             self.update_ui()
 
@@ -257,7 +324,7 @@ class PuzzleGUI:
                 self.moves_list.selection_set(i - 1)
                 self.moves_list.see(i - 1)
 
-            self.root.after(250, lambda: step(i + 1))
+            self.root.after(350, lambda: step(i + 1))
 
         step(0)
 
