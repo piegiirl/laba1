@@ -8,6 +8,12 @@ from puzzle_logic import is_solvable, shuffle_board
 
 SIZE = 4
 
+def restore_path(parent, goal):
+    path = []
+    while goal is not None:
+        path.append(goal)
+        goal = parent[goal]
+    return path[::-1]
 
 class PuzzleGUI:
     def __init__(self, root):
@@ -29,6 +35,12 @@ class PuzzleGUI:
 
         self.create_ui()
         self.update_ui()
+        self.results_dict = {
+            "bfs": None,
+            "dfs": None,
+            "dfs_recursive": None,
+            "dfs_modified": None
+        }
 
     def create_ui(self):
         main = tk.Frame(self.root, bg=self.bg_main)
@@ -116,7 +128,7 @@ class PuzzleGUI:
             right_ctrl,
             text="Старт",
             command=self.start_animation,
-            bg="#4CAF50",
+            bg="#4EE5D8",
             fg="white"
         ).pack(side="left", padx=5)
 
@@ -139,10 +151,53 @@ class PuzzleGUI:
 
         self.moves_list = tk.Listbox(moves_panel, width=28, height=18)
         self.moves_list.pack()
+        
+        # === РЕЗУЛЬТАТЫ АЛГОРИТМОВ ===
+        tk.Label(
+            moves_panel,
+            text="Результаты",
+            font=("Arial", 12, "bold"),
+            bg=self.bg_main
+        ).pack(pady=(10, 0))
 
+        self.results_text = tk.Text(
+            moves_panel,
+            width=28,
+            height=12,
+            font=("Courier New", 10)
+        )
+        self.results_text.pack()
+        self.results_text.config(state="disabled")
+        
         self.status = tk.Label(main, text="Готово", bg=self.bg_main)
         self.status.pack(pady=8)
+    def update_results_view(self):
+        self.results_text.config(state="normal")
+        self.results_text.delete(1.0, tk.END)
 
+        names = {
+            "bfs": "BFS",
+            "dfs": "DFS (итер.)",
+            "dfs_recursive": "DFS (рек.)",
+            "dfs_modified": "DFS (мод.)"
+        }
+
+        for key in ["bfs", "dfs", "dfs_recursive", "dfs_modified"]:
+            res = self.results_dict[key]
+            name = names[key]
+
+            if res:
+                steps, length = res
+                line = (
+                    f"{name}\n"
+                    f"  шаги: {steps:6}   длина: {length:3}\n\n"
+                )
+            else:
+                line = f"{name}\n  —\n\n"
+
+            self.results_text.insert(tk.END, line)
+
+        self.results_text.config(state="disabled")
     def reset_solution(self):
         self.path = None
         self.moves = []
@@ -254,6 +309,13 @@ class PuzzleGUI:
         self.current_step = 0
         self.update_ui()
         self.status.config(text="Готово")
+        self.results_dict = {
+            "bfs": None,
+            "dfs": None,
+            "dfs_recursive": None,
+            "dfs_modified": None
+        }
+        self.update_results_view()
 
     def compute_solution(self):
         start = tuple(self.initial_board)
@@ -273,7 +335,21 @@ class PuzzleGUI:
         elif method == "dfs":
             path, steps = dfs(start, self.goal, max_depth)
         elif method == "dfs_modified":
-            path, steps = dfs_modified(start, self.goal, max_depth)
+            steps = [0]
+            result = dfs_modified(start, self.goal, set(), [], steps, 0, max_depth)
+            if result:
+                path, steps = result
+            else:
+                path, steps = None, steps[0]
+        elif method == "dfs_recursive":
+            steps_rec = [0]
+            parent = {start: None}
+            found = dfs_recursive(start, self.goal, set(), parent, steps_rec, 0, max_depth)
+
+            if found:
+                path, steps = restore_path(parent, self.goal), steps_rec[0]
+            else:
+                path, steps = None, steps_rec[0]
         else:
             path, steps = dfs_recursive(start, self.goal, max_depth)
 
@@ -290,7 +366,8 @@ class PuzzleGUI:
         self.status.config(
             text=f"Шагов поиска: {steps} | Длина решения: {len(path) - 1}"
         )
-
+        self.results_dict[method] = (steps, len(path) - 1)
+        self.update_results_view()
         self.path = path
         self.moves = [self.get_move(path[k], path[k + 1]) for k in range(len(path) - 1)]
 

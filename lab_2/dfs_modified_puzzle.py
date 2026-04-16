@@ -1,42 +1,27 @@
 from puzzle_logic import get_neighbors
 
 
-def restore_path(parent, goal):
-    path = []
-    while goal is not None:
-        path.append(goal)
-        goal = parent[goal]
-    return path[::-1]
+def dfs_modified(current, goal, visited, path, steps, depth, max_depth):
+    visited.add(current)   # отмечаем текущее состояние как посещённое
+    path.append(current)   # добавляем его в текущий путь
+    steps[0] += 1          # увеличиваем счётчик шагов
 
+    neighbors = get_neighbors(current)
 
-def is_in_path(parent, current, node):
-    while current is not None:
-        if current == node:
-            return True
-        current = parent[current]
-    return False
-
-
-def dfs_modified(start, goal, max_depth):
-    stack = [(start, 0)]
-    parent = {start: None}
-    steps = 0
-
-    while stack:
-        current, depth = stack.pop()
-        steps += 1
-
+    # перебираем всех соседей текущего состояния
+    for neighbor in neighbors:
+        # если дошли до цели — возвращаем копию пути и количество шагов
         if current == goal:
-            return restore_path(parent, current), steps
+            return path.copy(), steps[0]
 
-        if depth >= max_depth:
-            continue
+        # ограничение глубины
+        if depth < max_depth and neighbor not in visited:
+            # рекурсивно идём глубже
+            result = dfs_modified(neighbor, goal, visited, path, steps, depth + 1, max_depth)
 
-        neighbors = get_neighbors(current)
+            # если путь найден — сразу возвращаем результат
+            if result:
+                return result
 
-        for neighbor in reversed(neighbors):
-            if not is_in_path(parent, current, neighbor):
-                parent[neighbor] = current
-                stack.append((neighbor, depth + 1))
-
-    return None, steps
+    path.pop()  # убираем состояние из пути, если путь не подошёл
+    return None  # если путь не найден
