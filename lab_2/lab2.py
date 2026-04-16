@@ -46,7 +46,7 @@ class PuzzleGUI:
 
         self.initial_board = list(range(1, 16)) + [0]
         self.goal_board = list(range(1, 16)) + [0]
-        self.board = self.initial_board.copy()  # поле решения
+        self.board = self.initial_board.copy()
 
         self.goal = tuple(self.goal_board)
         self.path = None
@@ -77,14 +77,24 @@ class PuzzleGUI:
         middle_container = tk.Frame(boards_frame, bg=self.bg_main)
         middle_container.grid(row=0, column=1, padx=10, sticky="n")
 
-        right_container = tk.Frame(boards_frame, bg=self.bg_main)
+        # === ВЫДЕЛЕННОЕ РЕШЕНИЕ ===
+        right_container = tk.Frame(
+            boards_frame,
+            bg="#cfd8dc",
+            highlightbackground="#4EE5D8",
+            highlightthickness=3
+        )
         right_container.grid(row=0, column=2, padx=10, sticky="n")
 
         self.left_buttons = self.create_labeled_board(left_container, "Начальное состояние")
         self.middle_buttons = self.create_labeled_board(middle_container, "Целевое состояние")
-        self.right_buttons = self.create_labeled_board(right_container, "Решение")
 
-        # === КНОПКИ СЛЕВА ===
+        self.right_buttons = self.create_labeled_board(
+            right_container,
+            "Решение",
+            background="#cfd8dc"
+        )
+
         btn_frame = tk.Frame(left_container, bg=self.bg_main)
         btn_frame.pack(fill="x", pady=10)
 
@@ -97,7 +107,6 @@ class PuzzleGUI:
         tk.Button(btn_frame, text="Цель", command=self.input_goal_state)\
             .pack(side="left", expand=True, fill="x", padx=5)
 
-        # === ВЫБОР МЕТОДА ===
         method_frame = tk.Frame(left_container, bg=self.bg_main)
         method_frame.pack(pady=5)
 
@@ -105,43 +114,22 @@ class PuzzleGUI:
 
         self.method_var = tk.StringVar(value="bfs")
 
-        tk.Radiobutton(
-            method_frame,
-            text="BFS",
-            variable=self.method_var,
-            value="bfs",
-            bg=self.bg_main,
-            command=self.reset_solution
-        ).pack(side="left", padx=5)
+        tk.Radiobutton(method_frame, text="BFS", variable=self.method_var,
+                       value="bfs", bg=self.bg_main, command=self.reset_solution)\
+            .pack(side="left", padx=5)
 
-        tk.Radiobutton(
-            method_frame,
-            text="DFS",
-            variable=self.method_var,
-            value="dfs",
-            bg=self.bg_main,
-            command=self.reset_solution
-        ).pack(side="left", padx=5)
+        tk.Radiobutton(method_frame, text="DFS", variable=self.method_var,
+                       value="dfs", bg=self.bg_main, command=self.reset_solution)\
+            .pack(side="left", padx=5)
 
-        tk.Radiobutton(
-            method_frame,
-            text="DFS Modified",
-            variable=self.method_var,
-            value="dfs_modified",
-            bg=self.bg_main,
-            command=self.reset_solution
-        ).pack(side="left", padx=5)
+        tk.Radiobutton(method_frame, text="DFS Modified", variable=self.method_var,
+                       value="dfs_modified", bg=self.bg_main, command=self.reset_solution)\
+            .pack(side="left", padx=5)
 
-        tk.Radiobutton(
-            method_frame,
-            text="DFS Recursive",
-            variable=self.method_var,
-            value="dfs_recursive",
-            bg=self.bg_main,
-            command=self.reset_solution
-        ).pack(side="left", padx=5)
+        tk.Radiobutton(method_frame, text="DFS Recursive", variable=self.method_var,
+                       value="dfs_recursive", bg=self.bg_main, command=self.reset_solution)\
+            .pack(side="left", padx=5)
 
-        # === ГЛУБИНА ДЛЯ DFS ===
         depth_frame = tk.Frame(left_container, bg=self.bg_main)
         depth_frame.pack(pady=5, fill="x")
 
@@ -149,17 +137,11 @@ class PuzzleGUI:
         self.depth_var = tk.IntVar(value=15)
         tk.Entry(depth_frame, textvariable=self.depth_var, width=5, justify="center").pack(side="left", padx=5)
 
-        # === КНОПКИ СПРАВА ===
-        right_ctrl = tk.Frame(right_container, bg=self.bg_main)
+        right_ctrl = tk.Frame(right_container, bg="#cfd8dc")
         right_ctrl.pack(pady=10)
 
-        tk.Button(
-            right_ctrl,
-            text="Старт",
-            command=self.start_animation,
-            bg="#4EE5D8",
-            fg="white"
-        ).pack(side="left", padx=5)
+        tk.Button(right_ctrl, text="Старт", command=self.start_animation,
+                  bg="#4EE5D8", fg="white").pack(side="left", padx=5)
 
         tk.Button(right_ctrl, text="Предыдущий шаг", command=self.prev_step)\
             .pack(side="left", padx=5)
@@ -167,27 +149,17 @@ class PuzzleGUI:
         tk.Button(right_ctrl, text="Следующий шаг", command=self.next_step)\
             .pack(side="left", padx=5)
 
-        # === СПИСОК ХОДОВ ===
         moves_panel = tk.Frame(boards_frame, bg=self.bg_main)
         moves_panel.grid(row=0, column=3, padx=15, sticky="n")
 
-        tk.Label(
-            moves_panel,
-            text="Ходы",
-            font=("Arial", 12, "bold"),
-            bg=self.bg_main
-        ).pack(pady=(0, 5))
+        tk.Label(moves_panel, text="Ходы",
+                 font=("Arial", 12, "bold"), bg=self.bg_main).pack(pady=(0, 5))
 
         self.moves_list = tk.Listbox(moves_panel, width=28, height=18)
         self.moves_list.pack()
 
-        # === РЕЗУЛЬТАТЫ АЛГОРИТМОВ ===
-        tk.Label(
-            moves_panel,
-            text="Результаты",
-            font=("Arial", 12, "bold"),
-            bg=self.bg_main
-        ).pack(pady=(10, 0))
+        tk.Label(moves_panel, text="Результаты",
+                 font=("Arial", 12, "bold"), bg=self.bg_main).pack(pady=(10, 0))
 
         self.results_text = tk.Text(
             moves_panel,
@@ -200,6 +172,8 @@ class PuzzleGUI:
 
         self.status = tk.Label(main, text="Готово", bg=self.bg_main)
         self.status.pack(pady=8)
+
+    # остальной код без изменений (update_results_view, логика, анимация и т.д.)
 
     def update_results_view(self):
         self.results_text.config(state="normal")
@@ -218,10 +192,7 @@ class PuzzleGUI:
 
             if res:
                 steps, length = res
-                line = (
-                    f"{name}\n"
-                    f"  шаги: {steps:6}   длина: {length:3}\n\n"
-                )
+                line = f"{name}\n  шаги: {steps:6}   длина: {length:3}\n\n"
             else:
                 line = f"{name}\n  —\n\n"
 
@@ -242,22 +213,18 @@ class PuzzleGUI:
         frame = tk.Frame(parent, background=(background or self.bg_board))
         frame.pack()
 
-        tk.Label(
-            frame,
-            text=title,
-            bg=self.bg_board,
-            font=("Arial", 12, "bold")
-        ).grid(row=0, column=0, columnspan=5, pady=10)
+        tk.Label(frame, text=title, bg=(background or self.bg_board),
+                 font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=5, pady=10)
 
-        tk.Label(frame, text="", bg=self.bg_board).grid(row=1, column=0)
+        tk.Label(frame, text="", bg=(background or self.bg_board)).grid(row=1, column=0)
 
         cols = ["A", "B", "C", "D"]
         for j, col in enumerate(cols):
-            tk.Label(frame, text=col, bg=self.bg_board).grid(row=1, column=j + 1)
+            tk.Label(frame, text=col, bg=(background or self.bg_board)).grid(row=1, column=j + 1)
 
         buttons = []
         for i in range(SIZE):
-            tk.Label(frame, text=str(i + 1), bg=self.bg_board).grid(row=i + 2, column=0)
+            tk.Label(frame, text=str(i + 1), bg=(background or self.bg_board)).grid(row=i + 2, column=0)
 
             row = []
             for j in range(SIZE):
