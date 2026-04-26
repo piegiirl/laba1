@@ -37,7 +37,7 @@ def dfs(start, goal, max_depth):
 
         # добавляем в стек (в обратном порядке для корректного обхода)
         for neighbor in reversed(neighbors):
-                    # проверка достижения цели
+            # проверка достижения цели
             if current == goal:
                 return restore_path(parent, goal), steps
             if neighbor not in visited:

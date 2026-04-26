@@ -409,7 +409,7 @@ class PuzzleGUI:
                 self.moves_list.see(self.current_step - 1)
 
     def get_move(self, s1, s2):
-        # Возвращает текстовое описание одного хода (A1 → B2)
+        # Возвращает текстовое описание одного хода 
         i1 = s1.index(0)
         i2 = s2.index(0)
         x1, y1 = divmod(i1, SIZE)
